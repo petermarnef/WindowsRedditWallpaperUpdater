@@ -23,21 +23,46 @@ namespace WindowsRedditWallpaperUpdater.SystemTrayIcon
 
         public ApplicationConfig()
         {
-            ReadRssFeedsFromFileOnDisk();
-
-            trayIcon = new TrayIcon("WindowsRedditWallpaperUpdater", Properties.Resources.SystemTrayIcon);
-            AddRssFeedsAsMenuItems();
-            AddDefaultMenuItems();
-            trayIcon.Initialize();
-
-            intervalTimer = new IntervalTimer(() => wallpaperUpdater.Update(selectedRssFeed), intervalInMinutes);
-            Application.ApplicationExit += new EventHandler(OnApplicationExit);
-
-            wallpaperUpdater = new WallpaperUpdater();
-            wallpaperUpdater.Update(selectedRssFeed);
+            rssFeeds = ReadRssFeedsFromFileOnDisk();
+            selectedRssFeed = SelectFirstRssFeedAsDefault();
+            trayIcon = InitializeTrayIcon();
+            intervalTimer = InitializeIntervalTimer();
+            SetApplicationExitEventHandler();
+            wallpaperUpdater = InitializeWallpaperUpdater();
         }
 
-        private void ReadRssFeedsFromFileOnDisk()
+        private WallpaperUpdater InitializeWallpaperUpdater()
+        {
+            var wallpaperUpdater = new WallpaperUpdater();
+            wallpaperUpdater.Update(selectedRssFeed);
+            return wallpaperUpdater;
+        }
+
+        private void SetApplicationExitEventHandler()
+        {
+            Application.ApplicationExit += new EventHandler(OnApplicationExit);
+        }
+
+        private IntervalTimer InitializeIntervalTimer()
+        {
+            return new IntervalTimer(() => wallpaperUpdater.Update(selectedRssFeed), intervalInMinutes);
+        }
+
+        private RssFeed SelectFirstRssFeedAsDefault()
+        {
+            return rssFeeds.First();
+        }
+
+        private TrayIcon InitializeTrayIcon()
+        {
+            var trayIcon = new TrayIcon("WindowsRedditWallpaperUpdater", Properties.Resources.SystemTrayIcon);
+            AddRssFeedsAsMenuItems(trayIcon);
+            AddDefaultMenuItems(trayIcon);
+            trayIcon.Initialize();
+            return trayIcon;
+        }
+
+        private List<RssFeed> ReadRssFeedsFromFileOnDisk()
         {
             var rssFeedsPath = Path.IsPathRooted(rssFeedsFile)
                 ? rssFeedsFile
@@ -47,17 +72,17 @@ namespace WindowsRedditWallpaperUpdater.SystemTrayIcon
             if (rssFeeds.Count < 1)
                 EventLog.WriteEntry("Application", $"No rss feeds found in file {rssFeedsPath}.", EventLogEntryType.Error);
 
-            selectedRssFeed = rssFeeds.First();
+            return rssFeeds;
         }
 
-        private void AddDefaultMenuItems()
+        private void AddDefaultMenuItems(TrayIcon trayIcon)
         {
             trayIcon
                 .AddMenuItem("Next Wallpaper", new EventHandler(OnNextWallpaper))
                 .AddMenuItem("Exit", new EventHandler(OnExit));
         }
 
-        private void AddRssFeedsAsMenuItems()
+        private void AddRssFeedsAsMenuItems(TrayIcon trayIcon)
         {
             foreach (var rssFeed in rssFeeds)
             {
